@@ -184,7 +184,7 @@ impl State {
         });
 
         //let model_transformation: cgmath::Matrix3<f32> = cgmath::Matrix3::from_angle_z(Deg(25.0));
-        let model_transformation: cgmath::Matrix4<f32> = cgmath::Matrix4::from_angle_z(Deg(73.2));
+        let model_transformation: cgmath::Matrix4<f32> = cgmath::Matrix4::from_angle_z(Deg(0.0));
         //let model_transformation: cgmath::Matrix4<f32> = cgmath::Matrix4::from_scale(0.5);
         let mut model_transformation_uniform = ModelTransformationUniform::new();
         model_transformation_uniform.update_transformation_matrix(model_transformation);
@@ -271,7 +271,7 @@ impl State {
         let vertex_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(SQUARE),
+                contents: bytemuck::cast_slice(TRIANGLE),
                 usage: wgpu::BufferUsages::VERTEX,
             }
         );
@@ -279,12 +279,12 @@ impl State {
         let index_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(SQUARE_INDICES),
+                contents: bytemuck::cast_slice(TRIANGLE_INDICES),
                 usage: wgpu::BufferUsages::INDEX,
             }
         );
 
-        let num_indices = SQUARE_INDICES.len() as u32;
+        let num_indices = TRIANGLE_INDICES.len() as u32;
 
         Self {
             window,
