@@ -122,7 +122,7 @@ impl ModelTransformUniform {
     }
 
     fn update_trans_mat(&mut self, transformation_matrix: &cgmath::Matrix4<f32>) {
-        self.trans_mat = (OPENGL_TO_WGPU_MATRIX * transformation_matrix).into();
+        self.trans_mat = (*transformation_matrix).into();
     }
 }
 
