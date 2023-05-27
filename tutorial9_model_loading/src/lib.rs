@@ -1,17 +1,18 @@
 mod colors;
-mod textures;
-mod resources;
 mod model;
-use model::Vertex;
-use cgmath::{Deg};
+mod resources;
+mod textures;
 use cgmath::prelude::*;
+use cgmath::Deg;
+use model::DrawModel;
+use model::Vertex;
+use wgpu::util::DeviceExt;
+use winit::window::Window;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{WindowBuilder},
+    window::WindowBuilder,
 };
-use winit::window::Window;
-use wgpu::util::DeviceExt;
 
 struct Instance {
     position: cgmath::Vector3<f32>,
@@ -21,17 +22,18 @@ struct Instance {
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: (cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation)).into(),
+            model: (cgmath::Matrix4::from_translation(self.position)
+                * cgmath::Matrix4::from(self.rotation))
+            .into(),
         }
     }
 }
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = 
-    cgmath::Vector3::new(
-        NUM_INSTANCES_PER_ROW as f32 * 0.5, 
-        0.0, 
-        NUM_INSTANCES_PER_ROW as f32 * 0.5
+const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+    0.0,
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
 #[repr(C)]
@@ -149,11 +151,12 @@ impl CameraController {
     fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state,
-                    virtual_keycode: Some(keycode),
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        state,
+                        virtual_keycode: Some(keycode),
+                        ..
+                    },
                 ..
             } => {
                 let is_pressed = *state == ElementState::Pressed;
@@ -211,8 +214,8 @@ impl CameraController {
         let forward_mag = forward.magnitude();
 
         if self.is_right_pressed {
-            // Rescale the distance between the target and eye so 
-            // that it doesn't change. The eye therefore still 
+            // Rescale the distance between the target and eye so
+            // that it doesn't change. The eye therefore still
             // lies on the circle made by the target and eye.
             camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
         }
@@ -223,9 +226,11 @@ impl CameraController {
 
     fn update_transformation_matrix(&self, transformation_matrix: &mut cgmath::Matrix4<f32>) {
         if self.is_rotate_left_pressed {
-            *transformation_matrix = cgmath::Matrix4::from_angle_z(Deg(5.0 * self.speed)) * *transformation_matrix;
+            *transformation_matrix =
+                cgmath::Matrix4::from_angle_z(Deg(5.0 * self.speed)) * *transformation_matrix;
         } else if self.is_rotate_right_pressed {
-            *transformation_matrix = cgmath::Matrix4::from_angle_z(Deg(5.0 * -self.speed)) * *transformation_matrix;
+            *transformation_matrix =
+                cgmath::Matrix4::from_angle_z(Deg(5.0 * -self.speed)) * *transformation_matrix;
         }
     }
 }
@@ -263,35 +268,39 @@ impl State {
             backends: wgpu::Backends::all(),
             dx12_shader_compiler: Default::default(),
         });
-        
+
         // # Safety
         //
         // The surface needs to live as long as the window that created it.
         // State owns the window so this should be safe.
         let surface = unsafe { instance.create_surface(&window) }.unwrap();
 
-        let adapter = instance.request_adapter(
-            &wgpu::RequestAdapterOptions {
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
-            },
-        ).await.unwrap();
+            })
+            .await
+            .unwrap();
 
-        let (device, queue) = adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
-                // WebGL doesn't support all of wgpu's features, so if
-                // we're building for the web we'll have to disable some.
-                limits: if cfg!(target_arch = "wasm32") {
-                    wgpu::Limits::downlevel_webgl2_defaults()
-                } else {
-                    wgpu::Limits::default()
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    features: wgpu::Features::empty(),
+                    // WebGL doesn't support all of wgpu's features, so if
+                    // we're building for the web we'll have to disable some.
+                    limits: if cfg!(target_arch = "wasm32") {
+                        wgpu::Limits::downlevel_webgl2_defaults()
+                    } else {
+                        wgpu::Limits::default()
+                    },
+                    label: None,
                 },
-                label: None,
-            },
-            None, // Trace path
-        ).await.unwrap();
+                None, // Trace path
+            )
+            .await
+            .unwrap();
 
         let surface_caps = surface.get_capabilities(&adapter);
         // Shader code in this tutorial assumes an sRGB surface texture. Using a different
@@ -309,50 +318,51 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let depth_texture = textures::Texture::create_depth_texture(&device, &config, "depth_texture");
-        
-        let diffuse_bytes = include_bytes!("textures/bricks/bricks-albedo.png");
-        let diffuse_texture = textures::Texture::from_bytes(&device, &queue, diffuse_bytes, "bricks-albedo.png").unwrap();
+        let depth_texture =
+            textures::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let texture_bind_group_layout = 
+        let diffuse_bytes = include_bytes!("textures/bricks/bricks-albedo.png");
+        let diffuse_texture =
+            textures::Texture::from_bytes(&device, &queue, diffuse_bytes, "bricks-albedo.png")
+                .unwrap();
+
+        let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture { 
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true }, 
-                            view_dimension: wgpu::TextureViewDimension::D2, 
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
                             multisampled: false,
+                        },
+                        count: None,
                     },
-                    count: None,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
                 },
-                wgpu::BindGroupLayoutEntry {
+                wgpu::BindGroupEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
                 },
             ],
-            label: Some("texture_bind_group_layout"),
+            label: Some("diffuse_bind_group"),
         });
-
-        let diffuse_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    }
-                ],
-                label:Some("diffuse_bind_group"),
-            }
-        );
 
         let camera = Camera {
             eye: (0.0, 1.0, 2.0).into(),
@@ -370,17 +380,15 @@ impl State {
         model_transform_uniform.update_view_proj(&camera);
         model_transform_uniform.update_trans_mat(&transformation_matrix);
 
-        let model_transform_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Model Transform Buffer"),
-                contents: bytemuck::cast_slice(&[model_transform_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, 
-            }
-        );
+        let model_transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Model Transform Buffer"),
+            contents: bytemuck::cast_slice(&[model_transform_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
-        let model_transform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let model_transform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
@@ -389,19 +397,16 @@ impl State {
                         min_binding_size: None,
                     },
                     count: None,
-                }
-            ],
-            label: Some("model_transform_bind_group_layout"),
-        });
+                }],
+                label: Some("model_transform_bind_group_layout"),
+            });
 
         let model_transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &model_transform_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: model_transform_buffer.as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: model_transform_buffer.as_entire_binding(),
+            }],
             label: Some("model_transform_bind_group"),
         });
 
@@ -410,7 +415,7 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
 
-        let render_pipeline_layout = 
+        let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
@@ -419,17 +424,14 @@ impl State {
                 ],
                 push_constant_ranges: &[],
             });
-        
+
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[
-                    model::ModelVertex::desc(),
-                    InstanceRaw::desc(),
-                ],
+                buffers: &[model::ModelVertex::desc(), InstanceRaw::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -464,43 +466,40 @@ impl State {
             multiview: None,
         });
 
-        let obj_model = 
-            resources::load_model(
-                "cube.obj", 
-                &device, 
-                &queue, 
-                &texture_bind_group_layout)
+        let obj_model =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
 
         const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
-            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                
-                let position = cgmath::Vector3 { x, y: 0.0, z };
-                
-                let rotation = if position.is_zero() {
-                    cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
-                } else {
-                    cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                };
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
 
-                Instance {
-                    position, rotation,
-                }
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
+
+                    let rotation = if position.is_zero() {
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+
+                    Instance { position, rotation }
+                })
             })
-        }).collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&instance_data),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         let camera_controller = CameraController::new(0.2);
 
@@ -530,7 +529,7 @@ impl State {
     pub fn window(&self) -> &Window {
         &self.window
     }
-    
+
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
@@ -541,10 +540,15 @@ impl State {
             // update camera aspect ratio
             self.camera.aspect = self.config.width as f32 / self.config.height as f32;
             self.model_transform_uniform.update_view_proj(&self.camera);
-            self.queue.write_buffer(&self.model_transform_buffer, 0, bytemuck::cast_slice(&[self.model_transform_uniform]));
-        
+            self.queue.write_buffer(
+                &self.model_transform_buffer,
+                0,
+                bytemuck::cast_slice(&[self.model_transform_uniform]),
+            );
+
             // update depth texture
-            self.depth_texture = textures::Texture::create_depth_texture(&self.device, &self.config, "depth_texture")
+            self.depth_texture =
+                textures::Texture::create_depth_texture(&self.device, &self.config, "depth_texture")
         }
     }
 
@@ -554,20 +558,29 @@ impl State {
 
     fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        self.camera_controller.update_transformation_matrix(&mut self.transformation_matrix);
+        self.camera_controller
+            .update_transformation_matrix(&mut self.transformation_matrix);
         self.model_transform_uniform.update_view_proj(&self.camera);
-        self.model_transform_uniform.update_trans_mat(&self.transformation_matrix);
-        self.queue.write_buffer(&self.model_transform_buffer, 0, bytemuck::cast_slice(&[self.model_transform_uniform]));
+        self.model_transform_uniform
+            .update_trans_mat(&self.transformation_matrix);
+        self.queue.write_buffer(
+            &self.model_transform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.model_transform_uniform]),
+        );
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
 
-        
         let background_color = colors::to_linear_rgb(0x20232A);
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -599,13 +612,24 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            let mesh = &self.obj_model.meshes[0];
-            let material = &self.obj_model.materials[mesh.material];
+            render_pass.draw_model_instanced(
+                &self.obj_model,
+                0..self.instances.len() as u32,
+                &self.model_transform_bind_group
+            );
 
-            use model::DrawModel;
-            render_pass.draw_mesh_instanced(mesh, material, 0..self.instances.len() as u32, &self.model_transform_bind_group);
+            // let mesh = &self.obj_model.meshes[0];
+            // let material = &self.obj_model.materials[mesh.material];
+
+            // use model::DrawModel;
+            // render_pass.draw_mesh_instanced(
+            //     mesh,
+            //     material,
+            //     0..self.instances.len() as u32,
+            //     &self.model_transform_bind_group,
+            // );
         }
-        
+
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
@@ -628,25 +652,28 @@ pub async fn run() {
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == state.window().id() => if !state.input(event) { // UPDATED!
-                match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
+            } if window_id == state.window().id() => {
+                if !state.input(event) {
+                    // UPDATED!
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state: ElementState::Pressed,
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
+                        WindowEvent::Resized(physical_size) => {
+                            state.resize(*physical_size);
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            state.resize(**new_inner_size);
+                        }
+                        _ => {}
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
-                    }
-                    _ => {}
                 }
             }
             Event::RedrawRequested(window_id) if window_id == state.window().id() => {
