@@ -21,8 +21,8 @@ struct Instance {
 
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
-        let model = 
-            (cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation));
+        let model = (cgmath::Matrix4::from_translation(self.position)
+            * cgmath::Matrix4::from(self.rotation));
         InstanceRaw {
             model: model.into(),
             normal: cgmath::Matrix3::from(self.rotation).into(),
@@ -42,7 +42,7 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
 #[allow(dead_code)]
 struct InstanceRaw {
     model: [[f32; 4]; 4],
-    normal: [[f32; 3]; 3]
+    normal: [[f32; 3]; 3],
 }
 
 impl model::Vertex for InstanceRaw {
@@ -644,10 +644,14 @@ impl State {
         // update the light
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
         self.light_uniform.position =
-            (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), 
-             cgmath::Deg(1.0)) * old_position
-            ).into();
-        self.queue.write_buffer(&self.light_buffer, 0, bytemuck::cast_slice(&[self.light_uniform]));
+            (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
+                * old_position)
+                .into();
+        self.queue.write_buffer(
+            &self.light_buffer,
+            0,
+            bytemuck::cast_slice(&[self.light_uniform]),
+        );
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -693,9 +697,9 @@ impl State {
             use crate::model::DrawLight;
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
-                &self.obj_model, 
-                &self.model_transform_bind_group, 
-                &self.light_bind_group
+                &self.obj_model,
+                &self.model_transform_bind_group,
+                &self.light_bind_group,
             );
 
             render_pass.set_pipeline(&self.render_pipeline);

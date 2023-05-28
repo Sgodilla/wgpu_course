@@ -17,6 +17,7 @@ anyhow = "1.0"
 fs_extra = "1.2"
 glob = "0.3"
 tobj = { version = "4.0.0", features = ["async",]}
+cargo-watch = "8.4.0"
 
 [dependencies.image]
 version = "0.24"
